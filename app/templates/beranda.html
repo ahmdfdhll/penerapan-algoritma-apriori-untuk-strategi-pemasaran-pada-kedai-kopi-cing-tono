@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Beranda — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<!-- ── Stat Cards ──────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#FFF5E6;">💰</div>
+      <div>
+        <div class="stat-label">Pendapatan Hari Ini</div>
+        <div class="stat-value">{{ format_rupiah(pendapatan_hari_ini) }}</div>
+        <div class="stat-sub">{{ trx_hari_ini }} transaksi</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#E8F5E9;">📅</div>
+      <div>
+        <div class="stat-label">Pendapatan Bulan Ini</div>
+        <div class="stat-value">{{ format_rupiah(pendapatan_bulan_ini) }}</div>
+        <div class="stat-sub">{{ trx_bulan_ini }} transaksi</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:#FFF0E6;">🧾</div>
+      <div>
+        <div class="stat-label">Total Transaksi</div>
+        <div class="stat-value">{{ trx_hari_ini }}</div>
+        <div class="stat-sub">Hari ini</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon" style="background:{% if stok_rendah %}#FFEBEE{% else %}#E8F5E9{% endif %};">
+        {% if stok_rendah %}⚠️{% else %}✅{% endif %}
+      </div>
+      <div>
+        <div class="stat-label">Stok Rendah</div>
+        <div class="stat-value">{{ stok_rendah|length }}</div>
+        <div class="stat-sub">Bahan perlu restok</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- ── Transaksi Terbaru ──────────────────────── -->
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2 text-muted"></i>Transaksi Terbaru</span>
+        <a href="{{ url_for('main.laporan') }}" class="btn btn-sm btn-coffee">Lihat Semua</a>
+      </div>
+      <div class="card-body p-0">
+        {% if transaksi_terbaru %}
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>Kode</th><th>Waktu</th><th>Total</th><th>Kasir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for trx in transaksi_terbaru %}
+            <tr>
+              <td><span class="badge-coffee">{{ trx.kode }}</span></td>
+              <td class="text-muted">{{ trx.tanggal.strftime('%H:%M') }}</td>
+              <td><strong>{{ format_rupiah(trx.total) }}</strong></td>
+              <td>{{ trx.kasir.nama_lengkap }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-receipt fs-1 d-block mb-2"></i>
+          Belum ada transaksi hari ini.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top Menu & Stok Rendah ────────────────── -->
+  <div class="col-lg-5">
+    <!-- Top Menu -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="bi bi-trophy me-2 text-warning"></i>Menu Terlaris
+      </div>
+      <div class="card-body">
+        {% if top_menu %}
+          {% set max_val = top_menu[0][1] %}
+          {% for nama, total in top_menu %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span style="font-size:.85rem;font-weight:600;">{{ nama }}</span>
+              <span class="badge-gold">{{ total }} terjual</span>
+            </div>
+            <div style="height:6px;border-radius:4px;background:#F0E8DC;">
+              <div class="top-menu-bar" style="width:{{ (total / max_val * 100)|int }}%;"></div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center text-muted py-3">Belum ada data penjualan.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Stok Rendah -->
+    {% if stok_rendah %}
+    <div class="card border-danger" style="border-color:#FFDAD9!important;">
+      <div class="card-header" style="background:#FFF5F5;color:#C0392B;">
+        <i class="bi bi-exclamation-triangle me-2"></i>Peringatan Stok Rendah
+      </div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead>
+            <tr><th>Bahan</th><th>Stok</th><th>Min</th></tr>
+          </thead>
+          <tbody>
+            {% for b in stok_rendah %}
+            <tr>
+              <td>{{ b.nama_bahan }}</td>
+              <td><span class="badge bg-danger text-white">{{ b.jumlah }} {{ b.satuan }}</span></td>
+              <td class="text-muted">{{ b.minimum_stok }} {{ b.satuan }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

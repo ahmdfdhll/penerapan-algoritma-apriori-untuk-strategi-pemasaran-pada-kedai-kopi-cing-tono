@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+{% block title %}Eksplorasi Data — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Eksplorasi Data Penjualan{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+
+  <!-- ── Penjualan Harian (Line) ─────────────── -->
+  <div class="col-12">
+    <div class="chart-card">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+        <div>
+          <h6 class="mb-0"><i class="bi bi-graph-up-arrow me-2" style="color:#D4A843;"></i><span id="judulHarian">Penjualan Harian (30 Hari Terakhir)</span></h6>
+          <div class="chart-sub">Tren total pendapatan & jumlah transaksi per hari</div>
+        </div>
+        <select id="filterBulanHarian" class="form-select form-select-sm" style="width:auto;min-width:170px;">
+          <option value="">30 Hari Terakhir</option>
+        </select>
+      </div>
+      <div class="chart-wrap">
+        <div class="loading-chart" id="loadLine">
+          <div class="spinner-border spinner-border-sm text-secondary"></div>
+          <span>Memuat data...</span>
+        </div>
+        <canvas id="chartHarian" style="display:none;max-height:280px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Pendapatan Bulanan (Bar) ───────────── -->
+  <div class="col-lg-7">
+    <div class="chart-card">
+      <h6><i class="bi bi-bar-chart me-2" style="color:#5C3317;"></i>Pendapatan Bulanan</h6>
+      <div class="chart-sub">Total pendapatan per bulan</div>
+      <div class="chart-wrap">
+        <div class="loading-chart" id="loadBulan">
+          <div class="spinner-border spinner-border-sm text-secondary"></div>
+          <span>Memuat data...</span>
+        </div>
+        <canvas id="chartBulanan" style="display:none;max-height:260px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Penjualan per Kategori (Doughnut) ─── -->
+  <div class="col-lg-5">
+    <div class="chart-card">
+      <h6><i class="bi bi-pie-chart me-2" style="color:#C8956C;"></i>Penjualan per Kategori</h6>
+      <div class="chart-sub">Distribusi pendapatan berdasarkan kategori menu</div>
+      <div class="chart-wrap">
+        <div class="loading-chart" id="loadKat">
+          <div class="spinner-border spinner-border-sm text-secondary"></div>
+          <span>Memuat data...</span>
+        </div>
+        <canvas id="chartKategori" style="display:none;max-height:260px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Top Menu (Horizontal Bar) ─────────── -->
+  <div class="col-12">
+    <div class="chart-card">
+      <h6><i class="bi bi-trophy me-2" style="color:#D4A843;"></i>Top 10 Menu Terlaris</h6>
+      <div class="chart-sub">Berdasarkan total unit terjual</div>
+      <div class="chart-wrap">
+        <div class="loading-chart" id="loadTop">
+          <div class="spinner-border spinner-border-sm text-secondary"></div>
+          <span>Memuat data...</span>
+        </div>
+        <canvas id="chartTopMenu" style="display:none;max-height:300px;"></canvas>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  // ── Colour palette ────────────────────────────────────
+  const BROWN  = '#5C3317';
+  const GOLD   = '#D4A843';
+  const MID    = '#8B5E3C';
+  const LIGHT  = '#C8956C';
+  const CREAM  = '#FAF6F0';
+  const PALETTE = ['#5C3317','#D4A843','#8B5E3C','#C8956C','#2C1A0E',
+                   '#F0D080','#A0522D','#DEB887','#6B3A2A','#E8C88A'];
+
+  Chart.defaults.font.family = "'DM Sans', sans-serif";
+  Chart.defaults.color       = '#9E8C7C';
+
+  function formatRp(n) { return 'Rp ' + n.toLocaleString('id-ID'); }
+
+  function hideLoader(id, canvasId) {
+    document.getElementById(id).style.display   = 'none';
+    document.getElementById(canvasId).style.display = 'block';
+  }
+
+  function showLoader(id, canvasId) {
+    const el = document.getElementById(id);
+    el.style.display = 'flex';
+    el.innerHTML = '<div class="spinner-border spinner-border-sm text-secondary"></div><span>Memuat data...</span>';
+    document.getElementById(canvasId).style.display = 'none';
+  }
+
+  function showEmpty(id) {
+    const el = document.getElementById(id);
+    el.style.display = 'flex';
+    el.innerHTML = '<i class="bi bi-bar-chart-line fs-2"></i><span>Belum ada data.</span>';
+  }
+
+  // ── 1. Penjualan Harian (dengan filter bulan) ─────────
+  let chartHarianInstance = null;
+
+  async function loadDaftarBulanHarian() {
+    try {
+      const res  = await fetch('/api/eksplorasi/daftar-bulan-harian');
+      const data = await res.json();
+      const sel  = document.getElementById('filterBulanHarian');
+
+      data.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b.value;
+        opt.textContent = b.label;
+        sel.appendChild(opt);
+      });
+    } catch (e) { /* dropdown tetap punya opsi default kalau gagal */ }
+  }
+
+  async function loadHarian(bulan) {
+    showLoader('loadLine', 'chartHarian');
+
+    try {
+      const url  = bulan ? `/api/eksplorasi/penjualan-harian?bulan=${bulan}` : '/api/eksplorasi/penjualan-harian';
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (chartHarianInstance) {
+        chartHarianInstance.destroy();
+        chartHarianInstance = null;
+      }
+
+      if (!data.labels.length) { showEmpty('loadLine'); return; }
+      hideLoader('loadLine', 'chartHarian');
+
+      chartHarianInstance = new Chart(document.getElementById('chartHarian'), {
+        type: 'line',
+        data: {
+          labels: data.labels,
+          datasets: [
+            {
+              label: 'Pendapatan (Rp)',
+              data: data.totals,
+              borderColor: BROWN,
+              backgroundColor: 'rgba(92,51,23,.08)',
+              borderWidth: 2.5,
+              fill: true,
+              tension: .4,
+              pointRadius: 3,
+              pointHoverRadius: 6,
+              yAxisID: 'yLeft'
+            },
+            {
+              label: 'Jumlah Transaksi',
+              data: data.counts,
+              borderColor: GOLD,
+              backgroundColor: 'transparent',
+              borderWidth: 2,
+              borderDash: [5, 4],
+              fill: false,
+              tension: .4,
+              pointRadius: 3,
+              yAxisID: 'yRight'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top' },
+            tooltip: {
+              callbacks: {
+                label: ctx => ctx.datasetIndex === 0
+                  ? ' ' + formatRp(ctx.raw)
+                  : ' ' + ctx.raw + ' transaksi'
+              }
+            }
+          },
+          scales: {
+            yLeft: {
+              type: 'linear', position: 'left',
+              ticks: { callback: v => formatRp(v) },
+              grid: { color: '#F0EAE2' }
+            },
+            yRight: {
+              type: 'linear', position: 'right',
+              grid: { drawOnChartArea: false }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    } catch(e) { showEmpty('loadLine'); }
+  }
+
+  // Ganti judul & muat ulang data tiap kali dropdown bulan diganti.
+  document.getElementById('filterBulanHarian').addEventListener('change', function () {
+    const bulan = this.value;
+    const label = this.options[this.selectedIndex].text;
+    document.getElementById('judulHarian').textContent = bulan
+      ? `Penjualan Harian — ${label}`
+      : 'Penjualan Harian (30 Hari Terakhir)';
+    loadHarian(bulan);
+  });
+
+  // ── 2. Pendapatan Bulanan ─────────────────────────────
+  async function loadBulanan() {
+    try {
+      const res  = await fetch('/api/eksplorasi/pendapatan-bulanan');
+      const data = await res.json();
+      if (!data.labels.length) { showEmpty('loadBulan'); return; }
+      hideLoader('loadBulan', 'chartBulanan');
+
+      new Chart(document.getElementById('chartBulanan'), {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: 'Pendapatan',
+            data: data.data,
+            backgroundColor: data.data.map((_, i) =>
+              i === data.data.length - 1 ? GOLD : BROWN),
+            borderRadius: 8,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } }
+          },
+          scales: {
+            y: {
+              ticks: { callback: v => formatRp(v) },
+              grid: { color: '#F0EAE2' }
+            },
+            x: { grid: { display: false } }
+          }
+        }
+      });
+    } catch(e) { showEmpty('loadBulan'); }
+  }
+
+  // ── 3. Kategori ───────────────────────────────────────
+  async function loadKategori() {
+    try {
+      const res  = await fetch('/api/eksplorasi/penjualan-kategori');
+      const data = await res.json();
+      if (!data.labels.length) { showEmpty('loadKat'); return; }
+      hideLoader('loadKat', 'chartKategori');
+
+      new Chart(document.getElementById('chartKategori'), {
+        type: 'doughnut',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            data: data.data,
+            backgroundColor: PALETTE.slice(0, data.labels.length),
+            borderWidth: 2,
+            borderColor: '#fff',
+            hoverOffset: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          cutout: '65%',
+          plugins: {
+            legend: { position: 'bottom', labels: { padding: 14, font: { size: 12 } } },
+            tooltip: { callbacks: { label: ctx => ' ' + formatRp(ctx.raw) } }
+          }
+        }
+      });
+    } catch(e) { showEmpty('loadKat'); }
+  }
+
+  // ── 4. Top Menu ───────────────────────────────────────
+  async function loadTopMenu() {
+    try {
+      const res  = await fetch('/api/eksplorasi/top-menu');
+      const data = await res.json();
+      if (!data.labels.length) { showEmpty('loadTop'); return; }
+      hideLoader('loadTop', 'chartTopMenu');
+
+      new Chart(document.getElementById('chartTopMenu'), {
+        type: 'bar',
+        data: {
+          labels: data.labels,
+          datasets: [{
+            label: 'Unit Terjual',
+            data: data.data,
+            backgroundColor: data.data.map((_, i) =>
+              i === 0 ? GOLD : i < 3 ? LIGHT : '#DEB887'),
+            borderRadius: 6,
+            borderSkipped: false
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: ctx => ' ' + ctx.raw + ' unit' } }
+          },
+          scales: {
+            x: { grid: { color: '#F0EAE2' }, ticks: { precision: 0 } },
+            y: { grid: { display: false } }
+          }
+        }
+      });
+    } catch(e) { showEmpty('loadTop'); }
+  }
+
+  // ── Init semua chart ──────────────────────────────────
+  loadDaftarBulanHarian();
+  loadHarian('');
+  loadBulanan();
+  loadKategori();
+  loadTopMenu();
+</script>
+{% endblock %}

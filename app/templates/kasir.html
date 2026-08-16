@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Kasir — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Kasir / Point of Sale{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<div class="pos-wrap">
+  <!-- ══ Menu Panel ══ -->
+  <div class="menu-panel">
+    <!-- Filter Kategori -->
+    <div class="filter-bar">
+      <button class="btn-kat active" onclick="filterKat(0, this)">Semua</button>
+      {% for kat in kategoris %}
+        <button class="btn-kat" onclick="filterKat({{ kat.id }}, this)">{{ kat.nama }}</button>
+      {% endfor %}
+    </div>
+
+    <!-- Grid Menu -->
+    <div class="menu-grid" id="menuGrid">
+      {% for m in menus %}
+      <div class="menu-item"
+           data-id="{{ m.id }}"
+           data-nama="{{ m.nama }}"
+           data-harga="{{ m.harga }}"
+           data-kat="{{ m.kategori_id }}"
+           onclick="tambahKeKeranjang({{ m.id }}, '{{ m.nama }}', {{ m.harga }})">
+        <span class="item-emoji">{{ pilih_emoji(m.nama, m.kategori.nama, m.deskripsi) }}</span>
+        <div class="item-kat">{{ m.kategori.nama }}</div>
+        <div class="item-name">{{ m.nama }}</div>
+        <div class="item-harga">{{ format_rupiah(m.harga) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ══ Cart Panel ══ -->
+  <div class="cart-panel">
+    <div class="cart-header">
+      🛒 Pesanan
+      <button class="btn btn-sm" style="font-size:.78rem;color:#C0392B;" onclick="clearKeranjang()">
+        <i class="bi bi-trash"></i> Kosongkan
+      </button>
+    </div>
+
+    <div class="cart-items" id="cartItems">
+      <div class="cart-empty" id="cartEmpty">
+        <i class="bi bi-bag"></i>
+        Keranjang kosong.<br>Klik menu untuk menambahkan.
+      </div>
+    </div>
+
+    <div class="cart-footer">
+      <div class="total-row">
+        <span class="total-label">Total</span>
+        <span class="total-value" id="totalDisplay">Rp 0</span>
+      </div>
+      <button class="btn-bayar" id="btnBayar" disabled onclick="bukaModalBayar()">
+        <i class="bi bi-cash-stack me-2"></i>Proses Pembayaran
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Bayar ══ -->
+<div class="modal fade" id="modalBayar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">💳 Proses Pembayaran</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <table class="table table-sm mb-3" id="rincianTable"></table>
+        <hr>
+        <div class="d-flex justify-content-between fw-bold mb-3">
+          <span>TOTAL</span>
+          <span id="modalTotal" style="font-family:'Playfair Display',serif;font-size:1.2rem;"></span>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold" style="font-size:.82rem;">UANG BAYAR</label>
+          <input type="number" id="inputBayar" class="form-control" placeholder="Masukkan nominal"
+                 oninput="hitungKembalian()"/>
+        </div>
+        <div class="mb-2">
+          <label class="form-label fw-semibold" style="font-size:.82rem;">CATATAN (Opsional)</label>
+          <input type="text" id="inputCatatan" class="form-control" placeholder="Contoh: gula sedikit"/>
+        </div>
+        <div class="kembalian-box" id="kembalianBox" style="display:none;">
+          <div class="kem-label">Kembalian</div>
+          <div class="kem-value" id="kembalianValue">Rp 0</div>
+        </div>
+        <div class="alert alert-danger mt-2" id="alertKurang" style="display:none;font-size:.85rem;">
+          <i class="bi bi-exclamation-circle me-1"></i> Uang bayar kurang!
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+        <button class="btn btn-coffee" id="btnKonfirmasi" onclick="konfirmasiBayar()" disabled>
+          <i class="bi bi-check-circle me-1"></i>Konfirmasi
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Struk ══ -->
+<div class="modal fade" id="modalStruk" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center p-4">
+      <div style="font-size:3rem;">✅</div>
+      <h5 style="font-family:'Playfair Display',serif;margin:12px 0 6px;">Transaksi Berhasil!</h5>
+      <p id="strukKode" class="text-muted" style="font-size:.85rem;"></p>
+      <div class="alert alert-success mt-2" style="border-radius:10px;">
+        Kembalian: <strong id="strukKembalian"></strong>
+      </div>
+      <div id="strukPeringatanStok" class="alert alert-warning mt-2 d-none text-start"
+           style="border-radius:10px;font-size:.8rem;"></div>
+      <button class="btn btn-outline-secondary w-100 mb-2" id="btnCetakStruk" onclick="cetakStruk()">
+        <i class="bi bi-printer me-1"></i>Cetak Struk
+      </button>
+      <button class="btn btn-coffee w-100" data-bs-dismiss="modal" onclick="resetKasir()">
+        <i class="bi bi-plus-circle me-1"></i>Transaksi Baru
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // ── State ─────────────────────────────────────────────
+  let keranjang = {};   // { menu_id: { nama, harga, jumlah } }
+  let strukTrxId = null; // trx_id transaksi terakhir, dipakai untuk cetak struk
+
+  // ── Filter Kategori ───────────────────────────────────
+  function filterKat(katId, btn) {
+    document.querySelectorAll('.btn-kat').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.menu-item').forEach(el => {
+     el.style.display = (!katId || el.dataset.kat == katId) ? '' : 'none';
+    });
+  }
+
+  // ── Keranjang Logic ───────────────────────────────────
+  function tambahKeKeranjang(id, nama, harga) {
+    if (keranjang[id]) {
+      keranjang[id].jumlah++;
+    } else {
+      keranjang[id] = { nama, harga, jumlah: 1 };
+    }
+    renderKeranjang();
+  }
+
+  function ubahJumlah(id, delta) {
+    if (!keranjang[id]) return;
+    keranjang[id].jumlah += delta;
+    if (keranjang[id].jumlah <= 0) delete keranjang[id];
+    renderKeranjang();
+  }
+
+  function clearKeranjang() {
+    keranjang = {};
+    renderKeranjang();
+  }
+
+  function hitungTotal() {
+    return Object.values(keranjang).reduce((s, i) => s + i.harga * i.jumlah, 0);
+  }
+
+  function formatRp(n) {
+    return 'Rp ' + n.toLocaleString('id-ID');
+  }
+
+  function renderKeranjang() {
+    const container = document.getElementById('cartItems');
+    const total     = hitungTotal();
+    const ids       = Object.keys(keranjang);
+
+    document.getElementById('totalDisplay').textContent = formatRp(total);
+    document.getElementById('btnBayar').disabled = ids.length === 0;
+
+    if (ids.length === 0) {
+        container.innerHTML = `
+            <div class="cart-empty" id="cartEmpty">
+                <i class="bi bi-bag"></i>
+                Keranjang kosong.<br>Klik menu untuk menambahkan.
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = ids.map(id => {
+        const it = keranjang[id];
+        return `
+        <div class="cart-item">
+            <div style="flex:1;">
+                <div class="ci-name">${it.nama}</div>
+                <div class="ci-harga">${formatRp(it.harga)}</div>
+            </div>
+            <div class="ci-qty">
+                <button class="btn-qty" onclick="ubahJumlah(${id}, -1)">−</button>
+                <span class="ci-count">${it.jumlah}</span>
+                <button class="btn-qty" onclick="ubahJumlah(${id}, 1)">+</button>
+            </div>
+            <div style="font-size:.82rem;font-weight:700;min-width:72px;text-align:right;">
+                ${formatRp(it.harga * it.jumlah)}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+  // ── Modal Bayar ───────────────────────────────────────
+  function bukaModalBayar() {
+    const total = hitungTotal();
+    document.getElementById('modalTotal').textContent = formatRp(total);
+    document.getElementById('inputBayar').value = '';
+    document.getElementById('inputCatatan').value = '';
+    document.getElementById('kembalianBox').style.display = 'none';
+    document.getElementById('alertKurang').style.display = 'none';
+    document.getElementById('btnKonfirmasi').disabled = true;
+
+    const tabel = document.getElementById('rincianTable');
+    tabel.innerHTML = Object.values(keranjang).map(it => `
+      <tr>
+        <td>${it.nama}</td>
+        <td class="text-center">x${it.jumlah}</td>
+        <td class="text-end">${formatRp(it.harga * it.jumlah)}</td>
+      </tr>`).join('');
+
+    new bootstrap.Modal(document.getElementById('modalBayar')).show();
+  }
+
+  function hitungKembalian() {
+    const total  = hitungTotal();
+    const bayar  = parseInt(document.getElementById('inputBayar').value) || 0;
+    const selisih = bayar - total;
+    const kem    = document.getElementById('kembalianBox');
+    const alert  = document.getElementById('alertKurang');
+    const btn    = document.getElementById('btnKonfirmasi');
+
+    if (bayar <= 0) {
+      kem.style.display = 'none';
+      alert.style.display = 'none';
+      btn.disabled = true;
+      return;
+    }
+    if (selisih < 0) {
+      kem.style.display = 'none';
+      alert.style.display = 'block';
+      btn.disabled = true;
+    } else {
+      kem.style.display = 'block';
+      alert.style.display = 'none';
+      document.getElementById('kembalianValue').textContent = formatRp(selisih);
+      btn.disabled = false;
+    }
+  }
+
+  async function konfirmasiBayar() {
+    const bayar   = parseInt(document.getElementById('inputBayar').value) || 0;
+    const catatan = document.getElementById('inputCatatan').value;
+
+    const items = Object.entries(keranjang).map(([id, it]) => ({
+      menu_id     : parseInt(id),
+      nama        : it.nama,
+      jumlah      : it.jumlah,
+      harga_satuan: it.harga
+    }));
+
+    const btn = document.getElementById('btnKonfirmasi');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Memproses...';
+
+    try {
+      const res = await fetch('/api/kasir/bayar', {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ items, bayar, catatan })
+      });
+      const data = await res.json();
+
+      if (data.status === 'success') {
+        bootstrap.Modal.getInstance(document.getElementById('modalBayar')).hide();
+        document.getElementById('strukKode').textContent = 'Kode: ' + data.kode;
+        document.getElementById('strukKembalian').textContent = formatRp(data.kembalian);
+        strukTrxId = data.trx_id;
+
+        const kotakPeringatan = document.getElementById('strukPeringatanStok');
+        if (data.bahan_rendah && data.bahan_rendah.length > 0) {
+          kotakPeringatan.innerHTML = '⚠️ Stok bahan menipis: <strong>' +
+            data.bahan_rendah.join(', ') + '</strong>. Segera restok ya!';
+          kotakPeringatan.classList.remove('d-none');
+        } else {
+          kotakPeringatan.classList.add('d-none');
+        }
+
+        new bootstrap.Modal(document.getElementById('modalStruk')).show();
+      } else {
+        alert(data.pesan);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Konfirmasi';
+      }
+    } catch (e) {
+      alert('Terjadi kesalahan. Coba lagi.');
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Konfirmasi';
+    }
+  }
+
+  function resetKasir() {
+    keranjang = {};
+    strukTrxId = null;
+    renderKeranjang();
+  }
+
+  function cetakStruk() {
+    if (!strukTrxId) return;
+    window.open('/kasir/struk/' + strukTrxId, '_blank');
+  }
+</script>
+{% endblock %}

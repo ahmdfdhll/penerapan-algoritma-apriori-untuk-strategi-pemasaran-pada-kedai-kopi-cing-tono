@@ -1,0 +1,416 @@
+{% extends "base.html" %}
+{% block title %}Stok Bahan — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Manajemen Stok Bahan{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<!-- ── Summary ─────────────────────────────── -->
+{% set total_bahan = bahans|length %}
+{% set rendah = bahans|selectattr('jumlah','le',bahans|map(attribute='minimum_stok')|first if bahans else 0) %}
+{% set jml_rendah = bahans|selectattr('jumlah', 'le', 0)|list|length %}
+
+<div class="stok-summary">
+  <div class="stok-pill">
+    <span style="font-size:1.6rem;">📦</span>
+    <div>
+      <div class="sp-val">{{ total_bahan }}</div>
+      <div class="sp-lbl">Total Bahan</div>
+    </div>
+  </div>
+  <div class="stok-pill" style="border-color:#FFDAD9;background:#FFF5F5;">
+    <span style="font-size:1.6rem;">⚠️</span>
+    <div>
+      <div class="sp-val" style="color:#C0392B;">
+        {{ bahans|selectattr('jumlah','le',bahans[0].minimum_stok if bahans else 0)|list|length }}
+      </div>
+      <div class="sp-lbl" style="color:#C0392B;">Perlu Restok</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Actions Bar ────────────────────────── -->
+<div class="d-flex gap-2 mb-4 flex-wrap align-items-center">
+  <button class="btn btn-coffee" data-bs-toggle="modal" data-bs-target="#modalTambahStok">
+    <i class="bi bi-plus-circle me-1"></i>Tambah Bahan
+  </button>
+  <div class="ms-auto">
+    <input type="text" class="form-control" style="max-width:220px;"
+           placeholder="Cari bahan..." oninput="cariBahan(this.value)"/>
+  </div>
+</div>
+
+<!-- ── Tabel Stok ─────────────────────────── -->
+<div class="card">
+  <div class="card-body p-0">
+    {% if bahans %}
+    <div class="table-responsive">
+      <table class="table mb-0" id="stokTable">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Nama Bahan</th>
+            <th>Satuan</th>
+            <th>Stok Saat Ini</th>
+            <th>Minimum Stok</th>
+            <th>Status</th>
+            <th>Terakhir Update</th>
+            <th class="text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in bahans %}
+          {% set persen = [(b.jumlah / b.minimum_stok * 100) if b.minimum_stok > 0 else 100, 100]|min %}
+          <tr class="{% if b.is_rendah() %}stok-rendah-row{% endif %}"
+              data-nama="{{ b.nama_bahan|lower }}">
+            <td class="text-muted">{{ loop.index }}</td>
+            <td>
+              <strong>{{ b.nama_bahan }}</strong>
+              {% if b.is_rendah() %}
+                <span class="ms-1" title="Stok rendah">⚠️</span>
+              {% endif %}
+            </td>
+            <td><span class="badge-coffee">{{ b.satuan }}</span></td>
+            <td>
+              <div style="font-weight:700;font-size:.92rem;
+                          color:{% if b.is_rendah() %}#C0392B{% else %}#2C1A0E{% endif %};">
+                {{ b.jumlah }} {{ b.satuan }}
+              </div>
+              <div class="progress-stok">
+                <div class="bar"
+                     style="width:{{ [persen,100]|min }}%;
+                            background:{% if persen < 50 %}#E74C3C{% elif persen < 80 %}#F39C12{% else %}#27AE60{% endif %};"></div>
+              </div>
+            </td>
+            <td style="font-size:.87rem;color:#9E8C7C;">{{ b.minimum_stok }} {{ b.satuan }}</td>
+            <td>
+              {% if b.is_rendah() %}
+                <span class="badge bg-danger text-white" style="border-radius:20px;font-size:.72rem;">Rendah</span>
+              {% else %}
+                <span class="badge bg-success text-white" style="border-radius:20px;font-size:.72rem;">Aman</span>
+              {% endif %}
+            </td>
+            <td style="font-size:.78rem;color:#9E8C7C;">{{ b.updated_at.strftime('%d %b %Y %H:%M') }}</td>
+            <td class="text-center">
+              <div class="d-flex justify-content-center gap-1">
+                <button class="btn btn-sm btn-gold"
+                        title="Tambah stok"
+                        onclick='bukaRestok({{ b.id }}, "{{ b.nama_bahan }}", {{ b.jumlah }}, "{{ b.satuan }}")'>
+                  <i class="bi bi-plus-lg"></i>
+                </button>
+                <button class="btn btn-sm btn-coffee"
+                        title="Edit"
+                        onclick='bukaEdit({{ b.id }}, "{{ b.nama_bahan }}", "{{ b.satuan }}", {{ b.jumlah }}, {{ b.minimum_stok }})'>
+                  <i class="bi bi-pencil"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-danger"
+                        title="Hapus"
+                        onclick='konfirmasiHapus({{ b.id }}, "{{ b.nama_bahan }}")'>
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-box-seam fs-1 d-block mb-3"></i>
+      <h6>Belum ada data stok bahan.</h6>
+      <p style="font-size:.85rem;">Klik "Tambah Bahan" untuk mulai mengelola stok.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ── Resep Menu (Bahan per Menu) ─────────── -->
+<div class="d-flex justify-content-between align-items-center mt-5 mb-3 flex-wrap gap-2">
+  <h5 class="mb-0" style="font-family:'Playfair Display',serif;">
+    <i class="bi bi-journal-text me-2"></i>Resep Menu
+  </h5>
+  <button class="btn btn-coffee btn-sm" data-bs-toggle="modal" data-bs-target="#modalTambahResep">
+    <i class="bi bi-plus-circle me-1"></i>Tambah Resep
+  </button>
+</div>
+<p class="text-muted" style="font-size:.82rem;margin-top:-8px;">
+  Atur bahan apa saja & berapa banyak yang terpakai untuk membuat 1 porsi menu.
+  Stok bahan akan <strong>otomatis berkurang</strong> setiap ada transaksi kasir sesuai resep ini.
+</p>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if resep_list %}
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Menu</th>
+            <th>Bahan</th>
+            <th>Terpakai / Porsi</th>
+            <th class="text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resep_list %}
+          <tr>
+            <td class="text-muted">{{ loop.index }}</td>
+            <td><strong>{{ r.menu.nama }}</strong></td>
+            <td>{{ r.bahan.nama_bahan }}</td>
+            <td>{{ r.jumlah_terpakai }} {{ r.bahan.satuan }}</td>
+            <td class="text-center">
+              <form method="POST" action="{{ url_for('main.resep_hapus', resep_id=r.id) }}"
+                    onsubmit="return confirm('Hapus resep {{ r.menu.nama }} — {{ r.bahan.nama_bahan }}?');">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-journal-text fs-1 d-block mb-3"></i>
+      <h6>Belum ada resep menu.</h6>
+      <p style="font-size:.85rem;">
+        Tambahkan resep supaya stok bahan otomatis berkurang saat menu ini terjual.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ Modal Tambah Stok ══════════════════════ -->
+<div class="modal fade" id="modalTambahStok" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-plus-circle me-2"></i>Tambah Bahan Baru
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.stok_tambah') }}">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nama Bahan</label>
+              <input type="text" name="nama_bahan" class="form-control" required
+                     placeholder="cth: Kopi Arabica, Susu UHT"/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Satuan</label>
+              <select name="satuan" class="form-select" required>
+                <option value="">— Pilih Satuan —</option>
+                <option value="gram">gram</option>
+                <option value="kg">kg</option>
+                <option value="ml">ml</option>
+                <option value="liter">liter</option>
+                <option value="pcs">pcs</option>
+                <option value="botol">botol</option>
+                <option value="sachet">sachet</option>
+                <option value="pak">pak</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Jumlah Awal</label>
+              <input type="number" name="jumlah" class="form-control" required min="0" step="0.01" value="0"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Minimum Stok (Threshold Peringatan)</label>
+              <input type="number" name="minimum_stok" class="form-control" required min="0" step="0.01" value="0"/>
+              <div style="font-size:.74rem;color:#9E8C7C;margin-top:4px;">
+                Peringatan akan muncul jika stok berada di bawah nilai ini.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-coffee">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Edit Stok ════════════════════════ -->
+<div class="modal fade" id="modalEditStok" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-pencil me-2"></i>Edit Data Bahan
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formEdit">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nama Bahan</label>
+              <input type="text" name="nama_bahan" id="editNama" class="form-control" required/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Satuan</label>
+              <select name="satuan" id="editSatuan" class="form-select" required>
+                <option value="gram">gram</option><option value="kg">kg</option>
+                <option value="ml">ml</option><option value="liter">liter</option>
+                <option value="pcs">pcs</option><option value="botol">botol</option>
+                <option value="sachet">sachet</option><option value="pak">pak</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Jumlah Stok</label>
+              <input type="number" name="jumlah" id="editJumlah" class="form-control" required min="0" step="0.01"/>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Minimum Stok</label>
+              <input type="number" name="minimum_stok" id="editMin" class="form-control" required min="0" step="0.01"/>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-coffee">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Restok ═══════════════════════════ -->
+<div class="modal fade" id="modalRestok" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-plus-circle me-2"></i>Tambah Stok
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formRestok">
+        <div class="modal-body">
+          <p class="text-muted" id="restokNama" style="font-size:.87rem;margin-bottom:14px;"></p>
+          <label class="form-label">Jumlah Tambah</label>
+          <input type="number" name="jumlah_tambah" class="form-control" required min="0.01" step="0.01" placeholder="0"/>
+          <div class="mt-2 alert" style="background:#FAF6F0;border:1px solid #EDE8E0;border-radius:10px;padding:10px 14px;font-size:.82rem;">
+            Stok saat ini: <strong id="stokSaatIni"></strong>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-gold" style="color:#2C1A0E;">
+            <i class="bi bi-plus-lg me-1"></i>Tambah
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Hapus ════════════════════════════ -->
+<div class="modal fade" id="modalHapus" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center p-4">
+      <div style="font-size:2.5rem;">🗑️</div>
+      <h5 style="font-family:'Playfair Display',serif;margin:12px 0 6px;">Hapus Bahan?</h5>
+      <p class="text-muted" id="hapusNama" style="font-size:.87rem;"></p>
+      <div class="d-flex gap-2 mt-3">
+        <button class="btn btn-secondary flex-fill" data-bs-dismiss="modal">Batal</button>
+        <form method="POST" id="formHapus" class="flex-fill">
+          <button type="submit" class="btn btn-danger w-100">Hapus</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Tambah Resep ═════════════════════ -->
+<div class="modal fade" id="modalTambahResep" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-journal-plus me-2"></i>Tambah Resep Menu
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.resep_tambah') }}">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Menu</label>
+              <select name="menu_id" class="form-select" required>
+                <option value="">— Pilih Menu —</option>
+                {% for m in menus %}
+                <option value="{{ m.id }}">{{ m.nama }} ({{ m.kategori.nama }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Bahan</label>
+              <select name="bahan_id" class="form-select" required>
+                <option value="">— Pilih Bahan —</option>
+                {% for b in bahans %}
+                <option value="{{ b.id }}">{{ b.nama_bahan }} ({{ b.satuan }})</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Jumlah Terpakai per 1 Porsi</label>
+              <input type="number" name="jumlah_terpakai" class="form-control" required min="0.01" step="0.01"
+                     placeholder="cth: 15 (gram/ml/pcs sesuai satuan bahan)"/>
+              <div style="font-size:.74rem;color:#9E8C7C;margin-top:4px;">
+                Kalau resep untuk menu & bahan yang sama sudah ada, jumlahnya akan diperbarui otomatis.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-coffee">Simpan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function cariBahan(q) {
+    q = q.toLowerCase();
+    document.querySelectorAll('#stokTable tbody tr').forEach(row => {
+      row.style.display = row.dataset.nama.includes(q) ? '' : 'none';
+    });
+  }
+
+  function bukaEdit(id, nama, satuan, jumlah, min) {
+    document.getElementById('formEdit').action   = `/stok/edit/${id}`;
+    document.getElementById('editNama').value    = nama;
+    document.getElementById('editSatuan').value  = satuan;
+    document.getElementById('editJumlah').value  = jumlah;
+    document.getElementById('editMin').value     = min;
+    new bootstrap.Modal(document.getElementById('modalEditStok')).show();
+  }
+
+  function bukaRestok(id, nama, jumlah, satuan) {
+    document.getElementById('formRestok').action   = `/stok/restok/${id}`;
+    document.getElementById('restokNama').textContent = `Menambah stok: ${nama}`;
+    document.getElementById('stokSaatIni').textContent = `${jumlah} ${satuan}`;
+    new bootstrap.Modal(document.getElementById('modalRestok')).show();
+  }
+
+  function konfirmasiHapus(id, nama) {
+    document.getElementById('formHapus').action    = `/stok/hapus/${id}`;
+    document.getElementById('hapusNama').textContent = `"${nama}" akan dihapus permanen.`;
+    new bootstrap.Modal(document.getElementById('modalHapus')).show();
+  }
+</script>
+{% endblock %}

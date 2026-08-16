@@ -1,0 +1,672 @@
+{% extends "base.html" %}
+{% block title %}Analisis Apriori — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Analisis Apriori{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<!-- ══ Parameter Panel ════════════════════════ -->
+<div class="param-card">
+  <h5><i class="bi bi-sliders me-2"></i>Parameter Analisis</h5>
+  <p class="sub">Pilih sumber data lalu atur ambang batas minimum Apriori.</p>
+
+  <form method="POST" action="{{ url_for('main.apriori') }}" enctype="multipart/form-data" id="formApriori">
+
+    <!-- Tab Sumber Data -->
+    <div class="sumber-tabs mb-4">
+      <button type="button" class="tab-btn {% if sumber_data != 'file' %}active{% endif %}"
+              onclick="setSumber('database')">
+        <i class="bi bi-database me-1"></i>Dari Database
+      </button>
+      <button type="button" class="tab-btn {% if sumber_data == 'file' %}active{% endif %}"
+              onclick="setSumber('file')">
+        <i class="bi bi-file-earmark-arrow-up me-1"></i>Import File
+      </button>
+    </div>
+
+    <input type="hidden" name="sumber_data" id="sumberData" value="{{ sumber_data }}"/>
+
+    <!-- Panel Database -->
+    <div id="panelDatabase" {% if sumber_data == 'file' %}style="display:none;"{% endif %}>
+      <div class="row g-3 mb-3">
+        <div class="col-sm-6">
+          <label class="form-label">Dari Tanggal (Opsional)</label>
+          <input type="date" name="tgl_mulai" class="form-control" value="{{ tgl_mulai }}"/>
+        </div>
+        <div class="col-sm-6">
+          <label class="form-label">Sampai Tanggal (Opsional)</label>
+          <input type="date" name="tgl_akhir" class="form-control" value="{{ tgl_akhir }}"/>
+        </div>
+      </div>
+
+      <div style="font-size:.75rem;color:rgba(255,255,255,.35);">
+        <i class="bi bi-database me-1"></i>
+        {{ total_trx_all }} total transaksi tersedia di database
+      </div>
+    </div>
+
+    <!-- Panel File Upload -->
+    <div id="panelFile" {% if sumber_data != 'file' %}style="display:none;"{% endif %}>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" name="file_transaksi" id="fileInput"
+               accept=".csv,.xlsx,.xls" style="display:none;"
+               onchange="onFileSelected(this)"/>
+
+        <div id="dropContent">
+          <i class="bi bi-cloud-arrow-up" style="font-size:2.2rem;color:rgba(255,255,255,.4);display:block;margin-bottom:10px;"></i>
+          <div style="font-size:.9rem;color:rgba(255,255,255,.6);font-weight:600;">
+            Klik atau seret file ke sini
+          </div>
+          <div style="font-size:.75rem;color:rgba(255,255,255,.3);margin-top:4px;">
+            CSV, Excel (.xlsx, .xls) — maks 10MB
+          </div>
+        </div>
+
+        <div id="dropSelected" style="display:none;">
+          <i class="bi bi-file-earmark-check" style="font-size:2rem;color:#D4A843;display:block;margin-bottom:8px;"></i>
+          <div id="dropFileName" style="font-size:.88rem;color:#F0D080;font-weight:600;"></div>
+          <div style="font-size:.74rem;color:rgba(255,255,255,.35);margin-top:3px;">Klik untuk ganti file</div>
+        </div>
+      </div>
+
+      {% if file_error %}
+      <div class="alert alert-danger mt-2" style="border-radius:10px;font-size:.84rem;padding:10px 14px;">
+        <i class="bi bi-exclamation-circle me-1"></i>{{ file_error }}
+      </div>
+      {% endif %}
+
+      <div class="format-guide mt-3">
+        <div style="font-size:.75rem;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          📋 Format File yang Didukung
+        </div>
+
+        <div class="row g-2">
+          <div class="col-sm-6">
+            <div class="format-box">
+              <div class="fb-title">Format 1 — Long (per item)</div>
+              <div class="fb-table">
+                <div class="fb-row header"><span>transaksi_id</span><span>item</span></div>
+                <div class="fb-row"><span>1</span><span>Kopi Susu</span></div>
+                <div class="fb-row"><span>1</span><span>Roti Bakar</span></div>
+                <div class="fb-row"><span>2</span><span>Es Teh</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-sm-6">
+            <div class="format-box">
+              <div class="fb-title">Format 2 — Wide (per transaksi)</div>
+              <div class="fb-table">
+                <div class="fb-row header"><span>item1</span><span>item2</span><span>item3</span></div>
+                <div class="fb-row"><span>Kopi Susu</span><span>Roti Bakar</span><span></span></div>
+                <div class="fb-row"><span>Es Teh</span><span>Pisang Goreng</span><span>Kopi Susu</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <a href="{{ url_for('main.download_template_apriori') }}"
+           class="btn-download-template mt-2">
+          <i class="bi bi-download me-1"></i>Download Template CSV
+        </a>
+      </div>
+
+      {% if preview_cols and preview_rows %}
+      <div class="preview-box mt-3">
+        <div style="font-size:.75rem;color:rgba(255,255,255,.4);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;">
+          👁 Preview: {{ nama_file }}
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="preview-table">
+            <thead>
+              <tr>
+                {% for c in preview_cols %}
+                <th>{{ c }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in preview_rows %}
+              <tr>
+                {% for v in row %}
+                <td>{{ v if v == v else '' }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="font-size:.7rem;color:rgba(255,255,255,.25);margin-top:6px;">
+          Menampilkan 5 baris pertama
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Slider Parameter -->
+    <div class="row g-3 mt-2">
+      <div class="col-sm-4">
+        <label class="form-label">
+          Min. Support &nbsp;<span class="range-val" id="supVal">{{ "%.2f"|format(min_support) }}</span>
+        </label>
+        <input type="range" class="form-range" name="min_support" id="supRange"
+               min="0.01" max="1.0" step="0.01" value="{{ min_support }}"
+               oninput="document.getElementById('supVal').textContent = parseFloat(this.value).toFixed(2)"/>
+      </div>
+
+      <div class="col-sm-4">
+        <label class="form-label">
+          Min. Confidence &nbsp;<span class="range-val" id="confVal">{{ "%.2f"|format(min_confidence) }}</span>
+        </label>
+        <input type="range" class="form-range" name="min_confidence" id="confRange"
+               min="0.01" max="1.0" step="0.01" value="{{ min_confidence }}"
+               oninput="document.getElementById('confVal').textContent = parseFloat(this.value).toFixed(2)"/>
+      </div>
+
+      <div class="col-sm-4">
+        <label class="form-label">
+          Min. Lift &nbsp;<span class="range-val" id="liftVal">{{ "%.1f"|format(min_lift) }}</span>
+        </label>
+        <input type="range" class="form-range" name="min_lift" id="liftRange"
+               min="0.1" max="5.0" step="0.1" value="{{ min_lift }}"
+               oninput="document.getElementById('liftVal').textContent = parseFloat(this.value).toFixed(1)"/>
+      </div>
+    </div>
+
+    <div class="mt-3">
+      <button type="submit" class="btn btn-analisis">
+        <i class="bi bi-diagram-3 me-2"></i>Jalankan Analisis
+      </button>
+    </div>
+  </form>
+</div>
+
+
+<!-- Hasil Analisis -->
+{% if hasil %}
+  {% if hasil.status == 'error' %}
+  <div class="alert alert-warning d-flex align-items-start gap-3" style="border-radius:14px;padding:20px;">
+    <i class="bi bi-exclamation-triangle fs-4 flex-shrink-0" style="color:#D4A843;"></i>
+    <div>
+      <strong>Analisis Tidak Menghasilkan Pola</strong>
+      <p class="mb-0 mt-1" style="font-size:.87rem;">{{ hasil.pesan }}</p>
+    </div>
+  </div>
+  {% else %}
+
+  <!-- Badge sumber data -->
+  <div class="mb-3">
+    <span class="info-src-badge">
+      {% if sumber_data == 'file' %}
+        <i class="bi bi-file-earmark-check me-1"></i>Sumber: File — {{ nama_file }}
+      {% else %}
+        <i class="bi bi-database me-1"></i>Sumber: Database
+        {% if tgl_mulai or tgl_akhir %} · Filter: {{ tgl_mulai }} s/d {{ tgl_akhir }}{% endif %}
+      {% endif %}
+    </span>
+  </div>
+
+  <!-- Summary -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="hasil-stat">
+        <div class="hs-val">{{ hasil.total_trx }}</div>
+        <div class="hs-lbl">Transaksi Dianalisis</div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="hasil-stat">
+        <div class="hs-val">{{ hasil.total_item }}</div>
+        <div class="hs-lbl">Item Unik</div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="hasil-stat">
+        <div class="hs-val">{{ hasil.frequent_itemsets|length }}</div>
+        <div class="hs-lbl">Frequent Itemsets</div>
+      </div>
+    </div>
+
+    <div class="col-6 col-md-3">
+      <div class="hasil-stat">
+        <div class="hs-val">{{ hasil.rules|length }}</div>
+        <div class="hs-lbl">Aturan Asosiasi</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ringkasan Parameter -->
+  <div class="card mb-4">
+    <div class="card-header">
+      <i class="bi bi-info-circle me-2" style="color:#D4A843;"></i>Ringkasan Parameter
+    </div>
+
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-md-3">
+          <div class="metric-pill">
+            <div class="mp-label">Minimum Support</div>
+            <div class="mp-val">{{ "%.2f"|format(hasil.params.min_support * 100) }}%</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="metric-pill">
+            <div class="mp-label">Minimum Confidence</div>
+            <div class="mp-val">{{ "%.2f"|format(hasil.params.min_confidence * 100) }}%</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="metric-pill">
+            <div class="mp-label">Minimum Lift</div>
+            <div class="mp-val">{{ hasil.params.min_lift }}</div>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <div class="metric-pill">
+            <div class="mp-label">Batas Support</div>
+            <div class="mp-val">{{ hasil.batas_support_transaksi }} transaksi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Frequent 1-Itemset -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-collection me-2" style="color:#8B5E3C;"></i>Frequent 1-Itemset (L1)</span>
+      <span class="badge-coffee">{{ hasil.l1|length }} item</span>
+    </div>
+
+    <div class="card-body">
+      <p style="font-size:.86rem;color:#8B7A6A;">Menampilkan menu tunggal yang memenuhi minimum support.</p>
+
+      {% if hasil.l1 %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Menu</th>
+              <th>Jumlah Transaksi</th>
+              <th>Support</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in hasil.l1 %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ row.itemset }}</td>
+              <td><strong>{{ row.jumlah }}</strong></td>
+              <td><strong>{{ row.support_pct }}%</strong></td>
+              <td><span class="badge-interp badge-sangat-kuat">Lolos</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-result py-3">Tidak terdapat frequent 1-itemset.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Frequent 2-Itemset -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-diagram-2 me-2" style="color:#8B5E3C;"></i>Frequent 2-Itemset (L2)</span>
+      <span class="badge-coffee">{{ hasil.l2|length }} kombinasi</span>
+    </div>
+
+    <div class="card-body">
+      <p style="font-size:.86rem;color:#8B7A6A;">Menampilkan kombinasi dua menu yang memenuhi minimum support.</p>
+
+      {% if hasil.l2 %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Kombinasi Menu</th>
+              <th>Jumlah Transaksi</th>
+              <th>Support</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in hasil.l2 %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ row.itemset }}</td>
+              <td><strong>{{ row.jumlah }}</strong></td>
+              <td><strong>{{ row.support_pct }}%</strong></td>
+              <td><span class="badge-interp badge-sangat-kuat">Lolos</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-result py-3">Tidak terdapat frequent 2-itemset.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Frequent 3-Itemset -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-diagram-3 me-2" style="color:#8B5E3C;"></i>Frequent 3-Itemset (L3)</span>
+      <span class="badge-coffee">{{ hasil.l3|length }} kombinasi</span>
+    </div>
+
+    <div class="card-body">
+      <p style="font-size:.86rem;color:#8B7A6A;">Menampilkan kombinasi tiga menu yang memenuhi minimum support.</p>
+
+      {% if hasil.l3 %}
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Kombinasi Menu</th>
+              <th>Jumlah Transaksi</th>
+              <th>Support</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in hasil.l3 %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td>{{ row.itemset }}</td>
+              <td><strong>{{ row.jumlah }}</strong></td>
+              <td><strong>{{ row.support_pct }}%</strong></td>
+              <td><span class="badge-interp badge-sangat-kuat">Lolos</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="alert alert-info mb-0" style="border-radius:12px;">
+        Tidak terdapat frequent 3-itemset yang memenuhi minimum support. Proses iterasi Apriori berhenti pada L2.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Aturan Asosiasi -->
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span><i class="bi bi-arrow-left-right me-2" style="color:#D4A843;"></i>Aturan Asosiasi</span>
+      <span class="badge-coffee">{{ hasil.rules|length }} aturan</span>
+    </div>
+
+    <div class="card-body">
+      <p style="font-size:.86rem;color:#8B7A6A;">
+        Tabel ini menampilkan aturan asosiasi yang memenuhi minimum support, minimum confidence, dan minimum lift.
+      </p>
+
+      {% if hasil.rules %}
+      <div class="mb-3 d-flex gap-2 flex-wrap">
+        <span style="font-size:.8rem;color:#9E8C7C;align-self:center;">Urutkan:</span>
+        <button class="btn btn-sm badge-gold" onclick="sortRules('lift')">Lift ↓</button>
+        <button class="btn btn-sm badge-coffee" onclick="sortRules('conf')">Confidence ↓</button>
+        <button class="btn btn-sm" style="border:1px solid #DDD4C8;border-radius:20px;font-size:.78rem;"
+                onclick="sortRules('sup')">Support ↓</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table mb-0" id="rulesTable">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Jika Beli</th>
+              <th>Maka Beli</th>
+              <th>Support</th>
+              <th>Confidence</th>
+              <th>Lift</th>
+              <th>Leverage</th>
+              <th>Conviction</th>
+              <th>Kekuatan</th>
+            </tr>
+          </thead>
+
+          <tbody id="rulesContainer">
+            {% for rule in hasil.rules %}
+            <tr data-lift="{{ rule.lift }}" data-conf="{{ rule.confidence }}" data-sup="{{ rule.support }}">
+              <td>{{ loop.index }}</td>
+
+              <td>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for item in rule.antecedents %}
+                  <span class="item-pill">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </td>
+
+              <td>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for item in rule.consequents %}
+                  <span class="item-pill consequent">{{ item }}</span>
+                  {% endfor %}
+                </div>
+              </td>
+
+              <td><strong>{{ rule.support_pct }}%</strong></td>
+              <td><strong>{{ rule.confidence_pct }}%</strong></td>
+
+              <td>
+                <strong style="color:{% if rule.lift >= 3 %}#1E8449{% elif rule.lift > 1 %}#1A6FA6{% else %}#B7770D{% endif %};">
+                  {{ rule.lift }}
+                </strong>
+              </td>
+
+              <td>{{ rule.leverage }}</td>
+              <td>{{ rule.conviction }}</td>
+
+              <td>
+                {% if rule.interpretasi == 'Sangat Kuat' %}
+                <span class="badge-interp badge-sangat-kuat">{{ rule.interpretasi }}</span>
+                {% elif rule.interpretasi == 'Kuat' %}
+                <span class="badge-interp badge-kuat">{{ rule.interpretasi }}</span>
+                {% elif rule.interpretasi == 'Negatif' %}
+                <span class="badge-interp badge-negatif">{{ rule.interpretasi }}</span>
+                {% else %}
+                <span class="badge-interp badge-lemah">{{ rule.interpretasi }}</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="no-result">
+        <i class="bi bi-search"></i>
+        Tidak ada aturan yang memenuhi threshold confidence dan lift.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Interpretasi -->
+  {% if hasil.rules %}
+  <div class="card mt-3" style="background:#FFFDF5;border-color:#F0D080;">
+    <div class="card-header" style="background:#FFFDF5;border-color:#F0D080;color:#8B6914;">
+      <i class="bi bi-lightbulb me-2"></i>Interpretasi Hasil
+    </div>
+
+    <div class="card-body" style="font-size:.88rem;">
+      <p class="mb-2">
+        Aturan dengan <strong>Lift &gt; 1</strong> menunjukkan bahwa item antecedent dan consequent
+        sering dibeli bersamaan lebih sering dibandingkan jika terjadi secara acak.
+      </p>
+
+      <p class="mb-2"><strong>Rekomendasi strategi berdasarkan hasil:</strong></p>
+
+      <ul class="mb-0" style="padding-left:1.2rem;line-height:1.8;">
+        <li>Gunakan Frequent 1-Itemset untuk mengetahui menu yang paling sering dibeli.</li>
+        <li>Gunakan Frequent 2-Itemset untuk melihat kombinasi menu yang memenuhi minimum support.</li>
+        <li>Gunakan Frequent 3-Itemset apabila terdapat kombinasi tiga menu yang memenuhi minimum support.</li>
+        <li>Gunakan aturan asosiasi valid sebagai dasar rekomendasi bundling dan strategi promosi menu.</li>
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Cetak PDF — diletakkan di paling bawah setelah seluruh hasil ditampilkan -->
+  <div class="card mt-4" style="background:#FAF7F2;">
+    <div class="card-body text-center py-4">
+      <i class="bi bi-file-earmark-pdf" style="font-size:2rem;color:#D4A843;display:block;margin-bottom:8px;"></i>
+      <h6 style="font-family:'Playfair Display',serif;margin-bottom:4px;">Cetak Laporan PDF</h6>
+      <p style="font-size:.84rem;color:#8B7A6A;max-width:420px;margin:0 auto 14px;">
+        Pilih mau cetak laporan lengkap (4 bagian) atau cetak salah satu bagian saja.
+      </p>
+
+      {% set bagian_list = [
+        ('semua', 'Cetak Semua (Lengkap)', 'bi-files'),
+        ('l1', 'Frequent 1-Itemset (L1)', 'bi-collection'),
+        ('l2', 'Frequent 2-Itemset (L2)', 'bi-diagram-2'),
+        ('l3', 'Frequent 3-Itemset (L3)', 'bi-diagram-3'),
+        ('rules', 'Aturan Asosiasi', 'bi-arrow-left-right'),
+      ] %}
+
+      <div class="dropdown d-inline-block">
+        <button class="btn btn-analisis dropdown-toggle" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-file-earmark-pdf me-2"></i>Cetak PDF Laporan
+        </button>
+        <ul class="dropdown-menu">
+          {% for nilai, label, icon in bagian_list %}
+          <li>
+            <a class="dropdown-item" target="_blank"
+               href="{% if sumber_data == 'file' %}{{ url_for('main.download_pdf_apriori_file', min_support=min_support, min_confidence=min_confidence, min_lift=min_lift, bagian=nilai) }}{% else %}{{ url_for('main.download_pdf_apriori', min_support=min_support, min_confidence=min_confidence, min_lift=min_lift, tgl_mulai=tgl_mulai, tgl_akhir=tgl_akhir, bagian=nilai) }}{% endif %}">
+              <i class="bi {{ icon }} me-2"></i>{{ label }}
+            </a>
+          </li>
+          {% if nilai == 'semua' %}<li><hr class="dropdown-divider"></li>{% endif %}
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  {% endif %}
+{% else %}
+<div class="card">
+  <div class="card-body">
+    <div class="no-result py-5">
+      <i class="bi bi-diagram-3" style="font-size:3.5rem;"></i>
+
+      <h5 style="font-family:'Playfair Display',serif;margin-bottom:8px;">
+        Siap untuk Analisis
+      </h5>
+
+      <p style="font-size:.87rem;max-width:380px;margin:0 auto;">
+        Atur parameter di atas dan klik <strong>Jalankan Analisis</strong> untuk menggali
+        pola pembelian dari riwayat transaksi.
+      </p>
+
+      <div class="mt-4 d-flex justify-content-center gap-3 flex-wrap">
+        <div class="metric-pill" style="min-width:100px;">
+          <div class="mp-label">Support</div>
+          <div class="mp-val" style="font-size:.8rem;color:#8B5E3C;">Frekuensi kemunculan</div>
+        </div>
+
+        <div class="metric-pill" style="min-width:100px;">
+          <div class="mp-label">Confidence</div>
+          <div class="mp-val" style="font-size:.8rem;color:#8B5E3C;">Tingkat kepercayaan</div>
+        </div>
+
+        <div class="metric-pill" style="min-width:100px;">
+          <div class="mp-label">Lift</div>
+          <div class="mp-val" style="font-size:.8rem;color:#8B5E3C;">Kekuatan hubungan</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function setSumber(val) {
+    document.getElementById('sumberData').value = val;
+
+    const isFile = val === 'file';
+
+    document.getElementById('panelDatabase').style.display = isFile ? 'none' : 'block';
+    document.getElementById('panelFile').style.display = isFile ? 'block' : 'none';
+
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+      btn.classList.toggle('active', (i === 0) !== isFile);
+    });
+  }
+
+  function onFileSelected(input) {
+    if (!input.files.length) return;
+
+    const file = input.files[0];
+
+    document.getElementById('dropContent').style.display = 'none';
+    document.getElementById('dropSelected').style.display = 'block';
+    document.getElementById('dropFileName').textContent =
+      `${file.name}  (${(file.size / 1024).toFixed(1)} KB)`;
+  }
+
+  const zone = document.getElementById('dropZone');
+
+  if (zone) {
+    zone.addEventListener('dragover', e => {
+      e.preventDefault();
+      zone.classList.add('dragover');
+    });
+
+    zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      zone.classList.remove('dragover');
+
+      const file = e.dataTransfer.files[0];
+
+      if (!file) return;
+
+      const inp = document.getElementById('fileInput');
+      const dt = new DataTransfer();
+
+      dt.items.add(file);
+      inp.files = dt.files;
+
+      onFileSelected(inp);
+    });
+  }
+
+  function sortRules(metric) {
+    const tbody = document.getElementById('rulesContainer');
+
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+
+    rows.sort((a, b) => {
+      const aVal = parseFloat(a.dataset[metric]) || 0;
+      const bVal = parseFloat(b.dataset[metric]) || 0;
+
+      return bVal - aVal;
+    });
+
+    rows.forEach(r => tbody.appendChild(r));
+  }
+</script>
+{% endblock %}

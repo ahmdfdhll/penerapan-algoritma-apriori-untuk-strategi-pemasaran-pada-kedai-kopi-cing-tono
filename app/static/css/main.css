@@ -1,0 +1,306 @@
+/* ============================================================
+   main.css — Global styles untuk semua halaman
+   Kedai Kopi Cing Tono
+   ============================================================ */
+
+/* ── Google Fonts dimuat di base.html ──────────────────────── */
+
+/* ── CSS Variables ──────────────────────────────────────────── */
+:root {
+  --cream:       #FAF6F0;
+  --brown-dark:  #2C1A0E;
+  --brown:       #5C3317;
+  --brown-mid:   #8B5E3C;
+  --brown-light: #C8956C;
+  --gold:        #D4A843;
+  --gold-light:  #F0D080;
+  --sidebar-w:   250px;
+  --radius:      12px;
+}
+
+/* ── Reset & Base ────────────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--cream);
+  color: var(--brown-dark);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--brown-dark);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+  transition: transform .3s ease;
+}
+.sidebar-brand {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+.sidebar-brand h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.15rem;
+  color: var(--gold-light);
+  line-height: 1.2;
+}
+.sidebar-brand span {
+  font-size: .72rem;
+  color: rgba(255,255,255,.45);
+  font-weight: 300;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.sidebar-brand .coffee-icon {
+  font-size: 1.8rem;
+  margin-bottom: 8px;
+  display: block;
+}
+.sidebar-nav { padding: 16px 0; flex: 1; }
+.nav-section-label {
+  font-size: .65rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.3);
+  padding: 16px 20px 6px;
+  font-weight: 600;
+}
+.sidebar-nav .nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  color: rgba(255,255,255,.6);
+  font-size: .88rem;
+  font-weight: 400;
+  border-left: 3px solid transparent;
+  transition: all .2s;
+  text-decoration: none;
+}
+.sidebar-nav .nav-link i { font-size: 1.05rem; width: 18px; }
+.sidebar-nav .nav-link:hover {
+  color: #fff;
+  background: rgba(255,255,255,.06);
+  border-left-color: var(--gold);
+}
+.sidebar-nav .nav-link.active {
+  color: var(--gold-light);
+  background: rgba(212,168,67,.12);
+  border-left-color: var(--gold);
+  font-weight: 600;
+}
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,.08);
+}
+.sidebar-footer .user-info {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px;
+}
+.sidebar-footer .avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--brown-mid);
+  display: flex; align-items: center; justify-content: center;
+  font-size: .85rem;
+  color: var(--gold-light);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.sidebar-footer .user-name {
+  font-size: .82rem;
+  color: rgba(255,255,255,.85);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-footer .user-role {
+  font-size: .7rem;
+  color: rgba(255,255,255,.35);
+  text-transform: capitalize;
+}
+.btn-logout {
+  width: 100%;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.1);
+  color: rgba(255,255,255,.55);
+  font-size: .8rem;
+  padding: 7px;
+  border-radius: 8px;
+  transition: all .2s;
+  text-decoration: none;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.btn-logout:hover {
+  background: rgba(220,53,69,.15);
+  border-color: rgba(220,53,69,.3);
+  color: #ff6b6b;
+}
+
+/* ── Main Content ────────────────────────────────────────────── */
+.main-content {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.topbar {
+  background: #fff;
+  padding: 14px 28px;
+  border-bottom: 1px solid #EDE8E0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+.topbar h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.25rem;
+  color: var(--brown-dark);
+  font-weight: 700;
+}
+.topbar .topbar-right { display: flex; align-items: center; gap: 12px; }
+.topbar .date-badge {
+  font-size: .78rem;
+  color: var(--brown-mid);
+  background: var(--cream);
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid #E8DDD0;
+}
+.page-body { padding: 28px; flex: 1; }
+
+/* ── Flash Messages ──────────────────────────────────────────── */
+.flash-container { padding: 0 28px; }
+.alert { border-radius: var(--radius); font-size: .88rem; }
+
+/* ── Cards ───────────────────────────────────────────────────── */
+.card {
+  border: 1px solid #EDE8E0;
+  border-radius: var(--radius);
+  box-shadow: 0 2px 12px rgba(44,26,14,.06);
+  background: #fff;
+}
+.card-header {
+  background: #fff;
+  border-bottom: 1px solid #EDE8E0;
+  padding: 16px 20px;
+  border-radius: var(--radius) var(--radius) 0 0 !important;
+  font-weight: 600;
+  font-size: .95rem;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────── */
+.btn-coffee {
+  background: var(--brown);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: .87rem;
+  font-weight: 600;
+  transition: all .2s;
+}
+.btn-coffee:hover { background: var(--brown-dark); color: #fff; }
+.btn-gold {
+  background: var(--gold);
+  color: var(--brown-dark);
+  border: none;
+  border-radius: 8px;
+  padding: 9px 18px;
+  font-size: .87rem;
+  font-weight: 600;
+  transition: all .2s;
+}
+.btn-gold:hover { background: var(--gold-light); color: var(--brown-dark); }
+
+/* ── Tables ──────────────────────────────────────────────────── */
+.table { font-size: .87rem; }
+.table thead th {
+  background: var(--cream);
+  color: var(--brown);
+  font-weight: 600;
+  font-size: .8rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border-bottom: 2px solid #EDE8E0;
+  padding: 12px 16px;
+}
+.table td { padding: 12px 16px; vertical-align: middle; }
+.table tbody tr:hover { background: #FDF8F2; }
+
+/* ── Badges ──────────────────────────────────────────────────── */
+.badge-coffee {
+  background: rgba(92,51,23,.1);
+  color: var(--brown);
+  font-size: .75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+.badge-gold {
+  background: rgba(212,168,67,.15);
+  color: #8B6914;
+  font-size: .75rem;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+/* ── Form Controls ───────────────────────────────────────────── */
+.form-label {
+  font-size: .8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--brown-mid);
+  margin-bottom: 5px;
+}
+.form-control, .form-select {
+  border: 1.5px solid #DDD4C8;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: .88rem;
+  color: var(--brown-dark);
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(212,168,67,.15);
+}
+
+/* ── Modal ───────────────────────────────────────────────────── */
+.modal-content { border-radius: 16px; border: none; }
+.modal-header  { border-bottom: 1px solid #EDE8E0; }
+.modal-footer  { border-top: 1px solid #EDE8E0; }
+
+/* ── Info pill ───────────────────────────────────────────────── */
+.info-pill {
+  background: #FAF6F0;
+  border: 1px solid #EDE8E0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: .83rem;
+  color: #8B5E3C;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: var(--brown-light); border-radius: 10px; }
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  .main-content { margin-left: 0; }
+}

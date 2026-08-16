@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Struk {{ trx.kode }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Courier New', Courier, monospace;
+      width: 300px;
+      margin: 24px auto;
+      font-size: 12.5px;
+      color: #111;
+      line-height: 1.5;
+    }
+    .center { text-align: center; }
+    .line { border-top: 1px dashed #333; margin: 8px 0; }
+    .row { display: flex; justify-content: space-between; gap: 8px; }
+    .brand { font-size: 17px; font-weight: bold; }
+    .alamat { font-size: 11px; color: #444; margin-top: 2px; }
+    .item-name { font-weight: 600; }
+    .item-sub { color: #444; }
+    .total-row { font-weight: bold; font-size: 14px; }
+    .footer-note { margin-top: 10px; font-size: 11.5px; }
+    .actions { text-align: center; margin-top: 22px; }
+    .actions button {
+      font-family: inherit;
+      font-size: 13px;
+      padding: 9px 18px;
+      margin: 0 4px;
+      border: 1px solid #333;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .actions button.primary {
+      background: #3B2414;
+      color: #fff;
+      border-color: #3B2414;
+    }
+    @media print {
+      .actions { display: none; }
+      body { width: auto; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="brand">☕ Kedai Kopi Cing Tono</div>
+    <div class="alamat">Terima kasih telah berbelanja</div>
+  </div>
+
+  <div class="line"></div>
+
+  <div class="row"><span>No. Struk</span><span>{{ trx.kode }}</span></div>
+  <div class="row"><span>Tanggal</span><span>{{ trx.tanggal.strftime('%d/%m/%Y %H:%M') }}</span></div>
+  <div class="row"><span>Kasir</span><span>{{ trx.kasir.nama_lengkap }}</span></div>
+
+  <div class="line"></div>
+
+  {% for d in trx.details %}
+  <div class="item-name">{{ d.menu.nama if d.menu else 'Menu tidak tersedia' }}</div>
+  <div class="row item-sub">
+    <span>{{ d.jumlah }} x {{ format_rupiah(d.harga_satuan) }}</span>
+    <span>{{ format_rupiah(d.subtotal) }}</span>
+  </div>
+  {% endfor %}
+
+  <div class="line"></div>
+
+  <div class="row total-row"><span>TOTAL</span><span>{{ format_rupiah(trx.total) }}</span></div>
+  <div class="row"><span>Bayar</span><span>{{ format_rupiah(trx.bayar) }}</span></div>
+  <div class="row"><span>Kembalian</span><span>{{ format_rupiah(trx.kembalian) }}</span></div>
+
+  {% if trx.catatan %}
+  <div class="line"></div>
+  <div class="footer-note"><strong>Catatan:</strong> {{ trx.catatan }}</div>
+  {% endif %}
+
+  <div class="line"></div>
+  <div class="center footer-note">Terima kasih atas kunjungan Anda 🙏<br>Sampai jumpa lagi!</div>
+
+  <div class="actions">
+    <button class="primary" onclick="window.print()">🖨️ Cetak</button>
+    <button onclick="window.close()">Tutup</button>
+  </div>
+
+  <script>
+    // Otomatis buka dialog cetak saat halaman terbuka (opsional, boleh dihapus jika tidak diinginkan)
+    window.onload = function () {
+      window.print();
+    };
+  </script>
+</body>
+</html>

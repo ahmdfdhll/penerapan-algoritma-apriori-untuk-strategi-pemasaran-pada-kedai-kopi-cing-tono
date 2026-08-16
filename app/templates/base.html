@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Kedai Kopi Cing Tono{% endblock %}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet"/>
+  <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet"/>
+  <link href="{{ url_for('static', filename='css/pages.css') }}" rel="stylesheet"/>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <span class="coffee-icon">☕</span>
+    <h1>Kedai Kopi<br>Cing Tono</h1>
+    <span>Sistem Manajemen</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    {% if current_user.role in ['admin', 'owner'] %}
+    <a href="{{ url_for('main.beranda') }}"
+       class="nav-link {% if request.endpoint == 'main.beranda' %}active{% endif %}">
+      <i class="bi bi-house-door"></i> Beranda
+    </a>
+    {% endif %}
+
+    {% if current_user.role in ['admin', 'kasir'] %}
+    <a href="{{ url_for('main.kasir') }}"
+       class="nav-link {% if request.endpoint == 'main.kasir' %}active{% endif %}">
+      <i class="bi bi-receipt-cutoff"></i> Kasir / POS
+    </a>
+    {% endif %}
+
+    {% if current_user.role in ['admin', 'owner', 'kasir'] %}
+    <a href="{{ url_for('main.laporan') }}"
+       class="nav-link {% if request.endpoint == 'main.laporan' %}active{% endif %}">
+      <i class="bi bi-journal-text"></i> Riwayat Transaksi
+    </a>
+    {% endif %}
+
+    {% if current_user.role in ['admin', 'owner'] %}
+    <a href="{{ url_for('main.eksplorasi') }}"
+       class="nav-link {% if request.endpoint == 'main.eksplorasi' %}active{% endif %}">
+      <i class="bi bi-bar-chart-line"></i> Eksplorasi Data
+    </a>
+    <a href="{{ url_for('main.apriori') }}"
+       class="nav-link {% if request.endpoint == 'main.apriori' %}active{% endif %}">
+      <i class="bi bi-diagram-3"></i> Analisis Apriori
+    </a>
+    {% endif %}
+
+    {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('main.menu') }}"
+       class="nav-link {% if request.endpoint == 'main.menu' %}active{% endif %}">
+      <i class="bi bi-menu-button-wide"></i> Data Menu
+    </a>
+    {% endif %}
+
+    {% if current_user.role in ['admin', 'kasir'] %}
+    <a href="{{ url_for('main.stok') }}"
+       class="nav-link {% if request.endpoint == 'main.stok' %}active{% endif %}">
+      <i class="bi bi-box-seam"></i> Stok Bahan
+    </a>
+    {% endif %}
+
+    {% if current_user.role == 'admin' %}
+    <a href="{{ url_for('main.users') }}"
+       class="nav-link {% if request.endpoint == 'main.users' %}active{% endif %}">
+      <i class="bi bi-people"></i> Manajemen User
+    </a>
+    {% endif %}
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="user-info">
+      <div class="avatar">{{ current_user.nama_lengkap[0].upper() }}</div>
+      <div>
+        <div class="user-name">{{ current_user.nama_lengkap }}</div>
+        <div class="user-role">{{ current_user.role }}</div>
+      </div>
+    </div>
+    <a href="{{ url_for('main.logout') }}" class="btn-logout">
+      <i class="bi bi-box-arrow-left"></i> Keluar
+    </a>
+  </div>
+</aside>
+
+<div class="main-content">
+  <div class="topbar">
+    <div class="d-flex align-items-center gap-3">
+      <button class="btn btn-sm d-md-none" onclick="toggleSidebar()">
+        <i class="bi bi-list fs-5"></i>
+      </button>
+      <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+    </div>
+    <div class="topbar-right">
+      <span class="date-badge">
+        <i class="bi bi-calendar3 me-1"></i>
+        <span id="tgl-sekarang"></span>
+      </span>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-container mt-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+            <i class="bi bi-{% if category == 'success' %}check-circle{% elif category == 'danger' %}x-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="page-body">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const days   = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+  const now    = new Date();
+  document.getElementById('tgl-sekarang').textContent =
+    days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()] + ' ' + now.getFullYear();
+
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

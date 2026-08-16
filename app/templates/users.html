@@ -1,0 +1,324 @@
+
+{% extends "base.html" %}
+{% block title %}Manajemen User — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Manajemen User{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+
+<!-- ── Summary ─────────────────────────────── -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-3">
+    <div class="stat-user">
+      <div class="su-val">{{ semua_user|length }}</div>
+      <div class="su-lbl">Total User</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-user">
+      <div class="su-val">{{ semua_user|selectattr('role','equalto','admin')|list|length }}</div>
+      <div class="su-lbl">Admin</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-user">
+      <div class="su-val">{{ semua_user|selectattr('role','equalto','kasir')|list|length }}</div>
+      <div class="su-lbl">Kasir</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="stat-user">
+      <div class="su-val">{{ semua_user|selectattr('role','equalto','owner')|list|length }}</div>
+      <div class="su-lbl">Owner</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Actions ────────────────────────────── -->
+<div class="d-flex gap-2 mb-4">
+  <button class="btn btn-coffee" data-bs-toggle="modal" data-bs-target="#modalTambah">
+    <i class="bi bi-person-plus me-1"></i>Tambah User
+  </button>
+</div>
+
+<!-- ── Tabel User ─────────────────────────── -->
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table mb-0">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>User</th>
+          <th>Username</th>
+          <th>Role</th>
+          <th>Terdaftar</th>
+          <th>Transaksi</th>
+          <th class="text-center">Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in semua_user %}
+        <tr>
+          <td class="text-muted">{{ loop.index }}</td>
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="avatar-lg">{{ u.nama_lengkap[0].upper() }}</div>
+              <div>
+                <div style="font-weight:700;font-size:.9rem;">{{ u.nama_lengkap }}</div>
+                {% if u.id == current_user.id %}
+                  <span class="self-badge">Anda</span>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+          <td><span class="badge-coffee">{{ u.username }}</span></td>
+          <td>
+            {% if u.role == 'admin' %}
+              <span class="role-admin">👑 Admin</span>
+            {% elif u.role == 'owner' %}
+              <span class="role-owner">📊 Owner</span>
+            {% else %}
+              <span class="role-kasir">🧾 Kasir</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.83rem;color:#9E8C7C;">
+            {{ u.created_at.strftime('%d %b %Y') }}
+          </td>
+          <td>
+            <span class="badge-coffee">{{ u.transaksis|length }} transaksi</span>
+          </td>
+          <td class="text-center">
+            <div class="d-flex justify-content-center gap-1">
+              <!-- Edit -->
+              <button class="btn btn-sm btn-coffee"
+                      title="Edit user"
+                      onclick='bukaEdit({{ u.id }}, "{{ u.username }}", "{{ u.nama_lengkap }}", "{{ u.role }}")'>
+                <i class="bi bi-pencil"></i>
+              </button>
+              <!-- Reset Password -->
+              <button class="btn btn-sm btn-gold" style="color:#2C1A0E;"
+                      title="Reset password"
+                      onclick='bukaReset({{ u.id }}, "{{ u.username }}")'>
+                <i class="bi bi-key"></i>
+              </button>
+              <!-- Hapus -->
+              {% if u.id != current_user.id %}
+              <button class="btn btn-sm btn-outline-danger"
+                      title="Hapus user"
+                      onclick='konfirmasiHapus({{ u.id }}, "{{ u.username }}")'>
+                <i class="bi bi-trash"></i>
+              </button>
+              {% else %}
+              <button class="btn btn-sm btn-outline-secondary" disabled title="Tidak bisa hapus akun sendiri">
+                <i class="bi bi-trash"></i>
+              </button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- ══ Modal Tambah User ══════════════════════ -->
+<div class="modal fade" id="modalTambah" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-person-plus me-2"></i>Tambah User Baru
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('main.users_tambah') }}">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nama Lengkap</label>
+              <input type="text" name="nama_lengkap" class="form-control" required
+                     placeholder="cth: Siti Rahayu"/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Username</label>
+              <input type="text" name="username" class="form-control" required
+                     placeholder="cth: kasir1"/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Role</label>
+              <select name="role" class="form-select" required>
+                <option value="kasir">🧾 Kasir</option>
+                <option value="owner">📊 Owner</option>
+                <option value="admin">👑 Admin</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Password</label>
+              <input type="password" name="password" id="pwdTambah" class="form-control" required
+                     placeholder="Minimal 6 karakter" oninput="cekKekuatan(this, 'strTambah')"/>
+              <div class="password-strength" id="strTambah"></div>
+              <div id="strTambahLabel" style="font-size:.72rem;color:#9E8C7C;margin-top:3px;"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-coffee">
+            <i class="bi bi-person-check me-1"></i>Simpan User
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Edit User ════════════════════════ -->
+<div class="modal fade" id="modalEdit" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-pencil me-2"></i>Edit User
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formEdit">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nama Lengkap</label>
+              <input type="text" name="nama_lengkap" id="editNama" class="form-control" required/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Username</label>
+              <input type="text" name="username" id="editUsername" class="form-control" required/>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Role</label>
+              <select name="role" id="editRole" class="form-select">
+                <option value="kasir">🧾 Kasir</option>
+                <option value="owner">📊 Owner</option>
+                <option value="admin">👑 Admin</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label">Password Baru <span style="color:#B0A090;font-weight:400;text-transform:none;">(kosongkan jika tidak diganti)</span></label>
+              <input type="password" name="password" class="form-control"
+                     placeholder="Isi jika ingin ganti password"/>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-coffee">Simpan Perubahan</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Reset Password ═══════════════════ -->
+<div class="modal fade" id="modalReset" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" style="font-family:'Playfair Display',serif;">
+          <i class="bi bi-key me-2"></i>Reset Password
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" id="formReset">
+        <div class="modal-body">
+          <p class="text-muted mb-3" id="resetNama" style="font-size:.87rem;"></p>
+          <label class="form-label">Password Baru</label>
+          <input type="password" name="password_baru" id="pwdReset" class="form-control" required
+                 placeholder="Minimal 6 karakter" oninput="cekKekuatan(this, 'strReset')"/>
+          <div class="password-strength" id="strReset"></div>
+          <div id="strResetLabel" style="font-size:.72rem;color:#9E8C7C;margin-top:3px;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+          <button type="submit" class="btn btn-gold" style="color:#2C1A0E;">
+            <i class="bi bi-key me-1"></i>Reset Password
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ══ Modal Hapus ════════════════════════════ -->
+<div class="modal fade" id="modalHapus" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content text-center p-4">
+      <div style="font-size:2.5rem;">🗑️</div>
+      <h5 style="font-family:'Playfair Display',serif;margin:12px 0 6px;">Hapus User?</h5>
+      <p class="text-muted" id="hapusNama" style="font-size:.87rem;"></p>
+      <div class="alert alert-warning" style="font-size:.82rem;border-radius:10px;padding:10px;">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Riwayat transaksi user ini akan tetap tersimpan.
+      </div>
+      <div class="d-flex gap-2 mt-2">
+        <button class="btn btn-secondary flex-fill" data-bs-dismiss="modal">Batal</button>
+        <form method="POST" id="formHapus" class="flex-fill">
+          <button type="submit" class="btn btn-danger w-100">Hapus</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function bukaEdit(id, username, nama, role) {
+    document.getElementById('formEdit').action    = `/users/edit/${id}`;
+    document.getElementById('editUsername').value = username;
+    document.getElementById('editNama').value     = nama;
+    document.getElementById('editRole').value     = role;
+    new bootstrap.Modal(document.getElementById('modalEdit')).show();
+  }
+
+  function bukaReset(id, username) {
+    document.getElementById('formReset').action      = `/users/reset-password/${id}`;
+    document.getElementById('resetNama').textContent = `Reset password untuk: ${username}`;
+    document.getElementById('pwdReset').value        = '';
+    new bootstrap.Modal(document.getElementById('modalReset')).show();
+  }
+
+  function konfirmasiHapus(id, username) {
+    document.getElementById('formHapus').action      = `/users/hapus/${id}`;
+    document.getElementById('hapusNama').textContent = `User "${username}" akan dihapus permanen.`;
+    new bootstrap.Modal(document.getElementById('modalHapus')).show();
+  }
+
+  function cekKekuatan(input, barId) {
+    const val  = input.value;
+    const bar  = document.getElementById(barId);
+    const lbl  = document.getElementById(barId + 'Label');
+    let kekuatan = 0;
+    if (val.length >= 6)                    kekuatan++;
+    if (val.length >= 10)                   kekuatan++;
+    if (/[A-Z]/.test(val))                  kekuatan++;
+    if (/[0-9]/.test(val))                  kekuatan++;
+    if (/[^A-Za-z0-9]/.test(val))          kekuatan++;
+
+    const level = [
+      { w: '20%',  color: '#E74C3C', label: 'Sangat Lemah' },
+      { w: '40%',  color: '#E67E22', label: 'Lemah' },
+      { w: '60%',  color: '#F39C12', label: 'Cukup' },
+      { w: '80%',  color: '#27AE60', label: 'Kuat' },
+      { w: '100%', color: '#1E8449', label: 'Sangat Kuat' },
+    ][Math.min(kekuatan, 4)];
+
+    bar.style.width      = val.length ? level.w : '0';
+    bar.style.background = level.color;
+    bar.style.display    = 'block';
+    if (lbl) lbl.textContent = val.length ? level.label : '';
+  }
+</script>
+{% endblock %}

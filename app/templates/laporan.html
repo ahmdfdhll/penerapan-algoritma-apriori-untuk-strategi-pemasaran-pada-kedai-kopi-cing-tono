@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+{% block title %}Laporan — Kedai Kopi Cing Tono{% endblock %}
+{% block page_title %}Riwayat Transaksi{% endblock %}
+
+{% block extra_css %}{% endblock %}
+
+{% block content %}
+<!-- ── Filter Bar ──────────────────────────────── -->
+<div class="filter-card">
+  <form method="GET" action="{{ url_for('main.laporan') }}">
+    <div class="row g-3 align-items-end">
+      <div class="col-sm-4 col-md-3">
+        <label class="form-label">Dari Tanggal</label>
+        <input type="date" name="tgl_dari" class="form-control" value="{{ tgl_dari }}"/>
+      </div>
+      <div class="col-sm-4 col-md-3">
+        <label class="form-label">Sampai Tanggal</label>
+        <input type="date" name="tgl_ke" class="form-control" value="{{ tgl_ke }}"/>
+      </div>
+      <div class="col-sm-4 col-md-3">
+        <button type="submit" class="btn btn-coffee w-100">
+          <i class="bi bi-search me-1"></i>Filter
+        </button>
+      </div>
+      {% if tgl_dari or tgl_ke %}
+      <div class="col-sm-4 col-md-3">
+        <a href="{{ url_for('main.laporan') }}" class="btn btn-outline-secondary w-100">
+          <i class="bi bi-x-circle me-1"></i>Reset
+        </a>
+      </div>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- ── Aksi Cetak Laporan ─────────────────────── -->
+<div class="d-flex justify-content-end mb-3">
+  <a id="btnCetakLaporan"
+     href="{{ url_for('main.laporan_download_pdf', tgl_dari=tgl_dari, tgl_ke=tgl_ke) }}"
+     class="btn btn-coffee">
+    <i class="bi bi-printer me-1"></i>Cetak Laporan (PDF)
+  </a>
+</div>
+
+<!-- ── Summary Pills ──────────────────────────── -->
+<div class="d-flex gap-2 flex-wrap mb-3">
+  <div class="info-pill"><i class="bi bi-receipt me-1"></i>
+    <strong>{{ pagination.total }}</strong> transaksi ditemukan
+  </div>
+  <div class="info-pill"><i class="bi bi-cash me-1"></i>
+    Total: <strong>{{ format_rupiah(total_periode) }}</strong>
+  </div>
+  {% if tgl_dari or tgl_ke %}
+  <div class="info-pill" style="background:#FFF9E6;border-color:#F0D080;color:#8B6914;">
+    <i class="bi bi-funnel me-1"></i>Filter aktif
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Tabel Transaksi ────────────────────────── -->
+<div class="card">
+  <div class="card-body p-0">
+    {% if transaksis %}
+    <div class="table-responsive">
+      <table class="table mb-0">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Kode Transaksi</th>
+            <th>Tanggal & Waktu</th>
+            <th>Kasir</th>
+            <th>Total</th>
+            <th>Bayar</th>
+            <th>Kembalian</th>
+            <th class="text-center">Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trx in transaksis %}
+          <tr>
+            <td class="text-muted" style="font-size:.8rem;">
+              {{ loop.index + (pagination.page - 1) * pagination.per_page }}
+            </td>
+            <td><span class="badge-trx">{{ trx.kode }}</span></td>
+            <td>
+              <div style="font-size:.87rem;font-weight:600;">{{ trx.tanggal.strftime('%d %b %Y') }}</div>
+              <div style="font-size:.75rem;color:#9E8C7C;">{{ trx.tanggal.strftime('%H:%M:%S') }}</div>
+            </td>
+            <td style="font-size:.87rem;">{{ trx.kasir.nama_lengkap }}</td>
+            <td><strong>{{ format_rupiah(trx.total) }}</strong></td>
+            <td style="font-size:.87rem;color:#8B5E3C;">{{ format_rupiah(trx.bayar) }}</td>
+            <td style="font-size:.87rem;">{{ format_rupiah(trx.kembalian) }}</td>
+            <td class="text-center">
+              <button class="btn btn-sm btn-outline-secondary"
+                      style="border-radius:8px;font-size:.78rem;"
+                      onclick="lihatDetail({{ trx.id }})">
+                <i class="bi bi-eye"></i> Detail
+              </button>
+              <a class="btn btn-sm btn-outline-secondary"
+                 style="border-radius:8px;font-size:.78rem;"
+                 href="{{ url_for('main.cetak_struk', trx_id=trx.id) }}"
+                 target="_blank" rel="noopener">
+                <i class="bi bi-printer"></i> Bill
+              </a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="d-flex justify-content-center py-3">
+      <nav>
+        <ul class="pagination mb-0">
+          <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link" href="?halaman={{ pagination.prev_num }}&tgl_dari={{ tgl_dari }}&tgl_ke={{ tgl_ke }}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+          {% for p in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+            {% if p %}
+              <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                <a class="page-link" href="?halaman={{ p }}&tgl_dari={{ tgl_dari }}&tgl_ke={{ tgl_ke }}">{{ p }}</a>
+              </li>
+            {% else %}
+              <li class="page-item disabled"><span class="page-link">…</span></li>
+            {% endif %}
+          {% endfor %}
+          <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link" href="?halaman={{ pagination.next_num }}&tgl_dari={{ tgl_dari }}&tgl_ke={{ tgl_ke }}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5 text-muted">
+      <i class="bi bi-journal-x fs-1 d-block mb-3"></i>
+      <h6>Tidak ada transaksi ditemukan.</h6>
+      <p style="font-size:.85rem;">Coba ubah filter tanggal atau tambahkan transaksi baru.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- ══ Modal Detail Transaksi ══════════════════ -->
+<div class="modal fade" id="modalDetail" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-1">
+      <div class="modal-body p-4" id="detailContent">
+        <div class="text-center py-4">
+          <div class="spinner-border text-secondary" style="width:2rem;height:2rem;"></div>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button class="btn btn-outline-secondary" id="btnCetakBillDetail" onclick="cetakBillDetail()">
+          <i class="bi bi-printer me-1"></i>Cetak Bill
+        </button>
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let currentTrxId = null; // trx_id yang sedang ditampilkan di modal detail
+
+  function cetakBillDetail() {
+    if (!currentTrxId) return;
+    window.open('/kasir/struk/' + currentTrxId, '_blank');
+  }
+
+  async function lihatDetail(trxId) {
+    currentTrxId = trxId;
+    const modal = new bootstrap.Modal(document.getElementById('modalDetail'));
+    document.getElementById('detailContent').innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border text-secondary"></div>
+        <p class="mt-2 text-muted small">Memuat detail...</p>
+      </div>`;
+    modal.show();
+
+    try {
+      const res  = await fetch(`/laporan/detail/${trxId}`);
+      const data = await res.json();
+      const formatRp = n => 'Rp ' + n.toLocaleString('id-ID');
+
+      const rows = data.items.map(it => `
+        <div class="struk-row">
+          <span>${it.nama} <small class="text-muted">×${it.jumlah}</small></span>
+          <span>${formatRp(it.subtotal)}</span>
+        </div>`).join('');
+
+      document.getElementById('detailContent').innerHTML = `
+        <div class="struk-header">
+          <div style="font-size:1.6rem;margin-bottom:8px;">☕</div>
+          <h5>Kedai Kopi Cing Tono</h5>
+          <div style="font-size:.82rem;color:#9E8C7C;margin-top:4px;">${data.tanggal}</div>
+          <div class="badge-trx mt-2 d-inline-block">${data.kode}</div>
+        </div>
+
+        <div class="mb-1" style="font-size:.8rem;color:#9E8C7C;font-weight:600;text-transform:uppercase;letter-spacing:.04em;">Rincian Pesanan</div>
+        ${rows}
+
+        <div class="struk-total">
+          <span>TOTAL</span>
+          <span>${formatRp(data.total)}</span>
+        </div>
+
+        <div class="row g-2 mt-3">
+          <div class="col-6">
+            <div class="info-pill d-flex justify-content-between">
+              <span class="text-muted">Bayar</span>
+              <strong>${formatRp(data.bayar)}</strong>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="info-pill d-flex justify-content-between">
+              <span class="text-muted">Kembali</span>
+              <strong>${formatRp(data.kembalian)}</strong>
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="info-pill d-flex justify-content-between">
+              <span class="text-muted">Kasir</span>
+              <strong>${data.kasir}</strong>
+            </div>
+          </div>
+          ${data.catatan ? `
+          <div class="col-12">
+            <div class="info-pill">
+              <i class="bi bi-chat-left-text me-1"></i> ${data.catatan}
+            </div>
+          </div>` : ''}
+        </div>`;
+    } catch(e) {
+      document.getElementById('detailContent').innerHTML =
+        `<div class="alert alert-danger">Gagal memuat detail transaksi.</div>`;
+    }
+  }
+</script>
+{% endblock %}
