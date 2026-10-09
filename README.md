@@ -81,7 +81,7 @@ Akses di: **http://localhost:5000**
 
 | Username | Password  | Role  |
 |----------|-----------|-------|
-| admin    | admin123  | admin |
+| admin    | ********  | admin |
 
 ---
 
